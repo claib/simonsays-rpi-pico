@@ -10,6 +10,9 @@ from utime import sleep
 import array
 import urandom
 
+global button_start
+button_start = False
+
 # Sound
 FAIL = 50
 WIN = 1000
@@ -114,41 +117,77 @@ def buttonPressed():
         elif pb_blue.value() == 1:
             return BLUE
         elif pb_red.value() == 1:
-            return RED   
+            return RED
+        
+# Generate a random Simon Says sequence
+def generateNewSequence():
+    # Crete and initialize an array
+    sequence = [0]*SEQ_LONG
+    for x in range(SEQ_LONG):
+        sequence[x] = elements[urandom.randint(0, 2)]
+    return sequence
+
+# Hadler function to catch IRQ (green led button pushed)
+def button_handler(pin):
+    global button_start
+    if pb_green.value() == 1:
+        button_start = True
+    sleep(0.01)
+
+# Wait for player to push green led button to start new game
+def waitForPlayer():
+    global button_start
+    button_start = False
+    pb_green.irq(trigger=machine.Pin.IRQ_RISING, handler=button_handler)
+    while True:
+        print("Waiting: push green led button to start new game.")
+        led_green.duty_u16(65025)
+        sleep(.1)
+        led_green.duty_u16(0)
+        sleep(.1)
+        led_green.duty_u16(65025)
+        sleep(.1)
+        led_green.duty_u16(0)
+        sleep(1)
+        if button_start == True:
+            print("Starting new game... good luck!")
+            return True
 
 # Possible LEDs colors (and sounds)
 elements = [GREEN, BLUE, RED]
 
-# Crete and initialize an array
-sequence = [0]*SEQ_LONG
-
-# Generate a random Simon Says sequence
-for x in range(SEQ_LONG):
-    sequence[x] = elements[urandom.randint(0, 2)]
-
 # Main
-x=0
-while x<len(sequence):
-    seq = sequence[:(x+1)]
-    sleep(1)
-    playSequence(seq)
-    y=0
-    while y<=x:
-        button_pressed = buttonPressed()
-        if button_pressed == sequence[y]:
-            y=y+1
-            beepColor(button_pressed)
-        else:
-            beep(FAIL)
-            x=99
-            break
-    x=x+1
 
-if x >= 99:
-    print ("Game Over")
-else:
-    print ("You win!")
-    sleep(.5)
-    beepWin()
-    beepWin()
+while True:
+    
+    # Wait for player to push green led button to start new game
+    waitForPlayer()
+    
+    # Generate new game sequence
+    sequence = generateNewSequence()
+
+    x=0
+    while x<len(sequence):
+        seq = sequence[:(x+1)]
+        sleep(1)
+        playSequence(seq)
+        y=0
+        while y<=x:
+            button_pressed = buttonPressed()
+            if button_pressed == sequence[y]:
+                y=y+1
+                beepColor(button_pressed)
+            else:
+                beep(FAIL)
+                x=99
+                break
+        x=x+1
+
+    if x >= 99:
+        print ("Game Over :(")
+    else:
+        print ("You win!")
+        sleep(.5)
+        beepWin()
+        beepWin()
 
